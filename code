@@ -143,7 +143,11 @@ def train(epochs=1, batch_size=128):
 
             #generate fake images
             generated_images = generator.predict(noise)
-            X = np.concatenate([image_batch, generated_images])
+            print("shape = ", np.shape(image_batch))
+            print("shape = ", np.shape(generated_images))
+            fixed_generated_images = np.array([generated_images[0], generated_images[3]])
+            print("shape = ", np.shape(fixed_generated_images))
+            X = np.concatenate([image_batch, fixed_generated_images])
 
             #label fake or not
             Y = np.zeros(2*batch_size)
@@ -151,16 +155,16 @@ def train(epochs=1, batch_size=128):
 
             #train discriminator and generator
             discriminator.trainable = True
-            dloss = discriminator.train_on_batch(X, Y)
+            d_loss = discriminator.train_on_batch(X, Y)
 
             noise = np.random.normal(0, 1, size=[batch_size, latent_dim])
-            yGen = np.ones(batch_size)
+            y_gen = np.ones(batch_size)
             discriminator.trainable = False
-            gloss = gan.train_on_batch(noise, yGen)
+            g_loss = gan.train_on_batch(noise, y_gen)
 
         #store epoch loss
-        discrim_losses.append(dloss)
-        gen_losses.append(gloss)
+        discrim_losses.append(d_loss)
+        gen_losses.append(g_loss)
         
         #print images and save weights per array
         if e == 1 or e % 20 == 0:
