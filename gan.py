@@ -125,8 +125,8 @@ def train(epochs=1, batch_size=128):
         #print images and save weights per array
         if e == 1 or e % 25 == 0:
             printGeneratedImages(e)
-            generator.save('models/gan_generator_epoch_%d.h5' % e)
-            discriminator.save('models/gan_discriminator_epoch_%d.h5' % e)
+            generator.save('model_parameters/gan_generator_epoch_%d.h5' % e)
+            discriminator.save('model_parameters/gan_discriminator_epoch_%d.h5' % e)
 
     #plot losses
     plotLoss(e)
