@@ -2,7 +2,6 @@ import numpy as np
 import keras as ker
 from tqdm import tqdm
 
-#keras/numpy imports
 from keras.models import Model, Sequential
 from keras.layers import Dense, Dropout, Flatten, Reshape, LeakyReLU, Conv2DTranspose, Input
 from keras.layers.convolutional import Conv2D, MaxPooling2D, UpSampling2D
@@ -13,14 +12,10 @@ from keras import backend as K
 from keras import initializers
 from numpy import expand_dims, ones, zeros, vstack
 from numpy.random import rand, randint, randn
+import matplotlib.pyplot as plt
 
 #import MNIST database
 from keras.datasets import mnist
-
-import matplotlib.pyplot as plt
-import keras.backend.tensorflow_backend as ktf
-import tensorflow as tf
-import os
 
 #use theano for tensor shape, try "image_dim_ordering" for updated API
 K.set_image_dim_ordering('th')
@@ -35,88 +30,43 @@ seed = 1
 np.random.seed(seed)
 latent_dim = 100
 
-#create discriminator
 discriminator = Sequential()
-#conv layers with intermittent dropout layers
-discriminator.add(Conv2D(64, 5, strides=(2,2), input_shape=(28, 28, 1), padding='same'))
-discriminator.add(LeakyReLU(alpha=0.2))   
-discriminator.add(Conv2D(128, 5, strides=(2,2), padding='same'))
-discriminator.add(LeakyReLU(alpha=0.2))
-discriminator.add(Dropout(0.2))    
-discriminator.add(Conv2D(256, 5, strides=(2,2), padding='same'))
-discriminator.add(LeakyReLU(alpha=0.2))
-discriminator.add(Dropout(0.2))    
-discriminator.add(Conv2D(512, 5, strides=(1,1), padding='same'))
-discriminator.add(LeakyReLU(alpha=0.2))
-discriminator.add(Dropout(0.2))   
-    
-discriminator.add(Flatten())
-    
-#dense layers
+discriminator.add(Dense(1024,input_dim=784))
+discriminator.add(LeakyReLU(0.2))
+discriminator.add(Dropout(0.3))  
 discriminator.add(Dense(512))
-discriminator.add(LeakyReLU(alpha=0.2))
-discriminator.add(Dropout(0.3))
+discriminator.add(LeakyReLU(0.2))
+discriminator.add(Dropout(0.3))   
 discriminator.add(Dense(256))
-discriminator.add(LeakyReLU(alpha=0.2))
-discriminator.add(Dropout(0.3))
-#true or false output
-discriminator.add(Dense(1, activation='sigmoid'))
-discriminator.compile(loss='binary_crossentropy', optimizer=Adam(lr=0.0002, beta_1=0.5))    
-
-
-
-#create generator
+discriminator.add(LeakyReLU(0.2)) 
+discriminator.add(Dense(units=1, activation='sigmoid')) 
+discriminator.compile(loss='binary_crossentropy', optimizer=Adam(lr=0.0002, beta_1=0.5))
+    
+    
 generator = Sequential()
-generator.add(Dense(128 * 7 * 7, input_dim=latent_dim))
-generator.add(LeakyReLU(alpha=0.2))
-generator.add(Reshape((7, 7, 128)))
-#upsample to 14x14, Conv2DTranspose combines both upsampling and conv layer
-generator.add(Conv2DTranspose(128, (3,3), strides=(2,2), padding='same'))
-generator.add(LeakyReLU(alpha=0.2))
-#upsampling to 28x28
-generator.add(Conv2DTranspose(128, (3,3), strides=(2,2), padding='same'))
-generator.add(LeakyReLU(alpha=0.2))
-generator.add(Conv2D(28, (7,7), activation='sigmoid', padding='same'))
+generator.add(Dense(256,input_dim=latent_dim))
+generator.add(LeakyReLU(0.2))    
+generator.add(Dense(512))
+generator.add(LeakyReLU(0.2))   
+generator.add(Dense(1024))
+generator.add(LeakyReLU(0.2))
+generator.add(Dense(784, activation='tanh'))
+generator.compile(loss='binary_crossentropy', optimizer=Adam(lr=0.0002, beta_1=0.5))
 
-#alternate function to create gan
-#def combine_models(d, g):
-    #freeze discriminator
-#    d.trainable = False
-#    gan = Sequential()
-    #add generator and discriminator
-#    gan.add(g)
-#    gan.add(d)
-    #compile gan
-#    gan.compile(loss='binary_crossentropy', optimizer=Adam(lr=0.0002, beta_1=0.5))              
-#    return gan
-
-
-#create gan by combining discriminator and generator
 discriminator.trainable = False
-gan_input = Input(shape=(latent_dim,))
-gan_output = discriminator(generator(gan_input))
-gan = Model(inputs=gan_input, outputs=gan_output)
-gan.compile(loss='binary_crossentropy', optimizer=Adam(lr=0.0002, beta_1=0.5))
+gan = Sequential()
+gan.add(generator)
+gan.add(discriminator)
+gan.compile(loss='binary_crossentropy', optimizer='adam')
 
 discrim_losses = []
 gen_losses = []
-
-#plot each batch's discriminator and generator losses
-def plotLoss(epoch):
-    plt.figure(figsize=(10, 8))
-    plt.plot(discrim_losses, label='Discriminator loss')
-    plt.plot(gen_losses, label='Generator loss')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.legend()
-    plt.savefig('output/gan_loss_epoch_%d.png' % epoch)
 
 #print generated images
 def printGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
     noise = np.random.normal(0, 1, size=[examples, latent_dim])
     generated_images = generator.predict(noise)
     generated_images = generated_images.reshape(examples, 28, 28)
-
     plt.figure(figsize=figsize)
     #format array of pictures
     for i in range(generated_images.shape[0]):
@@ -126,6 +76,16 @@ def printGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
     plt.tight_layout()
     plt.savefig('images/gan_generated_image_epoch_%d.png' % epoch)
 
+#plot each batch's discriminator and generator losses
+def plotLoss(epoch):
+    plt.figure(figsize=(9, 6))
+    plt.legend()
+    plt.plot(discrim_losses, label='Discriminator loss')
+    plt.plot(gen_losses, label='Generator loss')
+    plt.xlabel('Epoch #')
+    plt.ylabel('Loss')
+    plt.savefig('images/gan_loss_epoch_%d.png' % epoch)
+    
 #train gan
 def train(epochs=1, batch_size=128):
     batch_count = X_train.shape[0] / batch_size
@@ -139,15 +99,11 @@ def train(epochs=1, batch_size=128):
         for _ in tqdm(range(int(batch_count))):
             #create randomized noise and images
             noise = np.random.normal(0, 1, size=[batch_size, latent_dim])
-            image_batch = X_train[np.random.randint(0, X_train.shape[0], size=batch_size)]
+            image_batch =X_train[np.random.randint(low=0,high=X_train.shape[0],size=batch_size)]
 
             #generate fake images
             generated_images = generator.predict(noise)
-            print("shape = ", np.shape(image_batch))
-            print("shape = ", np.shape(generated_images))
-            fixed_generated_images = np.array([generated_images[0], generated_images[3]])
-            print("shape = ", np.shape(fixed_generated_images))
-            X = np.concatenate([image_batch, fixed_generated_images])
+            X = np.concatenate([image_batch, generated_images])
 
             #label fake or not
             Y = np.zeros(2*batch_size)
@@ -167,10 +123,10 @@ def train(epochs=1, batch_size=128):
         gen_losses.append(g_loss)
         
         #print images and save weights per array
-        if e == 1 or e % 20 == 0:
+        if e == 1 or e % 25 == 0:
             printGeneratedImages(e)
-            generator.save('model_parameters/gan_generator_epoch_%d.h5' % e)
-            discriminator.save('model_parameters/gan_discriminator_epoch_%d.h5' % e)
+            generator.save('models/gan_generator_epoch_%d.h5' % e)
+            discriminator.save('models/gan_discriminator_epoch_%d.h5' % e)
 
     #plot losses
     plotLoss(e)
