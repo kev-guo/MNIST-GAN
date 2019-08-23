@@ -79,11 +79,11 @@ def printGeneratedImages(epoch, examples=100, dim=(10, 10), figsize=(10, 10)):
 #plot each batch's discriminator and generator losses
 def plotLoss(epoch):
     plt.figure(figsize=(9, 6))
-    plt.legend()
     plt.plot(discrim_losses, label='Discriminator loss')
     plt.plot(gen_losses, label='Generator loss')
     plt.xlabel('Epoch #')
     plt.ylabel('Loss')
+    plt.legend()
     plt.savefig('images/gan_loss_epoch_%d.png' % epoch)
     
 #train gan
